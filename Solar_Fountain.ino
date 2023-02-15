@@ -1,3 +1,11 @@
+/*
+Baterrierelaisüberbrückung
+Verkabelung optimieren
+Helligkeitssensoren feintunen
+HElligkeitssensornamen austauschen
+
+
+*/
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ESP32Servo.h> 
@@ -7,10 +15,13 @@
 #include <Update.h>
 #include <FastLED_NeoMatrix.h>
 
+
+
 TaskHandle_t Task1;
 TaskHandle_t Task2;
 
 #define solarfountain TRUE
+
 #include <inserts.h>
 // inserts.h contains:
 // #if defined(solarfountain)
@@ -23,6 +34,63 @@ TaskHandle_t Task2;
 // #endif
 
 #pragma region Variablen
+typedef enum
+{
+   vs_init  =0,
+   vs_relais,
+   vs_check,
+   vs_attach,
+   vs_ausfuehren,
+   vs_detach,
+   vs_wait,
+} enum_vs;
+
+typedef enum
+{
+   bs_initial  =0,
+   bs_batteriebetrieb,
+   bs_vollgeladen,
+   bs_halbeLadung,
+   bs_Leer,
+   bs_externeAnforderung,
+   bs_drain_caps,
+   bs_balance_bat_and_caps,
+} enum_bs;
+
+#define VOLLGELADEN 11.2
+#define DREIVIERTELVOLL 10.38 
+#define HALBVOLL 9.75
+#define VIERTELVOLL 9.13
+#define LEER 8
+#define DRAIN_CAPS_WAITTIME 5
+#define BALANCE_BAT_AND_CAPS_WAITTIME 5
+int balance_bat_and_caps_cntr = 0;
+int drain_caps_cntr = 0;
+int battery_state = bs_initial;
+int old_battery_state = 99;
+float Spannung_12V_avg_lt1 = 0;
+float Spannung_12V_avg_lt2 = 0;
+int lt_counter = 0;
+float laderate = 0;
+int ExterneAnforderung = false; // im Nodered nach 1h auf False setzen
+int ExterneAnforderungFlag = false;
+int lt_init = true;
+int externe_anforderung_cntr = 0;
+#define EXTERNE_ANFORDERUNG_WAITTIME 3
+
+#define WAITTIME_BREITE  0
+#define WAITTIME_HOEHE  0
+char stringBuffer1[6];
+
+int Pumpe_Inhibit = false;
+
+
+int verstellung_state_breite = 0;
+int waitcounter_breite = 0;
+int verstellung_state_hoehe = 0;
+int waitcounter_hoehe = 0;
+int Richtung_hoehe = 0;
+int Richtung_breite = 0;
 float Helligkeit_Korrekturwert0 = 0.94;
 float Helligkeit_Korrekturwert1 = 1.04;
 float Helligkeit_Korrekturwert2 = 1;
@@ -32,8 +100,12 @@ int Mittelwertloops = 30;
 Servo breite;
 Servo hoehe;
 const char* TOPIC1 = "Tgszeit";
+int Sollwinkel_breite_alt = 110;
+int Sollwinkel_hoehe_alt = 110;
 int Sollwinkel_breite = 110;
 int Sollwinkel_hoehe = 110;
+int Last_Sollwinkel_breite = 110;
+int Last_Sollwinkel_hoehe = 110;
 volatile int Tgszeit_breite = 110;
 float Verstellschwelle = 1.2;
 int avg0 = 0;
@@ -47,7 +119,7 @@ int eternity_counter = 0;
 int Zeit = 0;
 int Zeit1 = 0;
 int Zeit2 = 0;
-int Relaisstatus = 0;
+int Pumpenrelais_an = 0;
 //int lastr = 0;
 //int z = 0;
 int init_done=0;
@@ -55,8 +127,8 @@ int initcnt=0;
 int batterie_an = 0;
 float breitendiff = 0;
 float hoehendiff = 0;
-int verstellung_counter = 0;
-
+int verstellung_counter_breite = 0;
+int verstellung_counter_hoehe = 0;
 int Wifiwait = 0;
 
 IPAddress server1(192, 168, 178, 66);
@@ -67,7 +139,8 @@ char MQTTclient[] = "SolarWifi";
 ;
 char MQTTstatus[] = "Solstate";
 char MQTTsub1[] = "Tgszeit";
-char MQTTsub2[] = "hoehe";
+char MQTTsub2[] = "brextanf";
+char MQTTsub3[] = "brpmp";
 
 #pragma endregion Variablen
 
@@ -170,14 +243,15 @@ const char* serverIndex =
 #pragma region Wifi_MQTT
 void callback(char* topic, byte* payload, unsigned int length) 
 {
-Serial.print("Nachricht eingetroffen [");
-Serial.print(topic);
-Serial.print("]: ");
+// Serial.print("Nachricht eingetroffen [");
+// Serial.print(topic);
+// Serial.print("]: ");
 for (int i=0;i<length;i++) 
    {
    Serial.print((char)payload[i]);
       }
-Serial.println();
+        Serial.println("!"); 
+// Serial.println();
 String myString = String(topic); 
 if (myString == "Tgszeit")
    {
@@ -189,14 +263,26 @@ if (myString == "Tgszeit")
    Zeit2 = (Zeit2-48);
    Zeit = Zeit1 + Zeit2;
 
-   Serial.print("Zeit: ");
-   Serial.println(Zeit);
+   // Serial.print("Zeit: ");
+   // Serial.println(Zeit);
    if (Zeit < 9) (Zeit = 9);
    if (Zeit > 19) (Zeit = 19);
    Tgszeit_breite = (-18 * Zeit) + 342;
-   Serial.print("Tgszeit_breite: ");
-   Serial.println(Tgszeit_breite);
+   // Serial.print("Tgszeit_breite: ");
+   // Serial.println(Tgszeit_breite);
    }
+else if (myString == "brextanf")
+   {
+   ExterneAnforderung = payload[0]-48;
+   Serial.println(ExterneAnforderung);
+   }
+else if (myString == "brpmp")
+   {
+   Pumpe_Inhibit = payload[0]-48;
+   Serial.println(ExterneAnforderung);
+   }
+
+
 }
 
 WiFiClient espClient;
@@ -223,6 +309,7 @@ if (!client.connected())
       // und meldet sich bei inTopic für eingehende Nachrichten an:
       client.subscribe(MQTTsub1);
       client.subscribe(MQTTsub2);
+      client.subscribe(MQTTsub3);
       client.publish(MQTTstatus, "Tageszeit");
       } 
    else 
@@ -320,6 +407,7 @@ pinMode(22, OUTPUT);
 pinMode(23, OUTPUT);
 pinMode(33, OUTPUT);
 pinMode(12, OUTPUT);
+pinMode(16, OUTPUT);
 #pragma endregion set_Pins
 
 #pragma region Taskcreation
@@ -395,11 +483,46 @@ EVERY_N_MILLISECONDS(100)
 EVERY_N_MILLISECONDS(500) 
   {
   mittelwertbildung();
-  Serial.print("Sollwinkel_breite=");
-  Serial.println(Sollwinkel_breite);
+//   Serial.print("Sollwinkel_breite=");
+//   Serial.println(Sollwinkel_breite);
 
   }
+// EVERY_N_SECONDS(5) 
+   // {
+   // if (Sollwinkel_breite > 175)
+   //    {
+   //    Richtung_breite=0;
+   //    }
+   // if (Sollwinkel_breite <5)
+   //    {
+   //    Richtung_breite=1;
+   //    }
+   // if (Richtung_breite == 0 )
+   //    {
+   //    Sollwinkel_breite--;
+   //    }
+   // if (Richtung_breite == 1)
+   //    {
+   //    Sollwinkel_breite++;
+   //    }
 
+   // if (Sollwinkel_hoehe > 145)
+   //    {
+   //    Richtung_hoehe=0;
+   //    }
+   // if (Sollwinkel_hoehe <65)
+   //    {
+   //    Richtung_hoehe=1;
+   //    }
+   // if (Richtung_hoehe == 0 )
+   //    {
+   //    Sollwinkel_hoehe--;
+   //    }
+   // if (Richtung_hoehe == 1)
+   //    {
+   //    Sollwinkel_hoehe++;
+   //    }
+   // }
 EVERY_N_SECONDS(2) 
   {
   mqtt();
@@ -410,5 +533,10 @@ EVERY_N_SECONDS(2)
 }
 
 
-
+// #include </Batterie.ino>
+// #include <mqtt.ino>
+// #include <Relais.ino>
+// #include <Verstellung.ino>
+// #include <Abend.ino>
+// #include <mittelwertbildung.ino>
  

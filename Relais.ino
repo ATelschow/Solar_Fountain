@@ -1,17 +1,20 @@
+// #include <Solar_Fountain.ino>
 void relais() 
 {
-if (Relaisstatus == 0 && Spannung_12V_avg > 11)
+if (  Pumpenrelais_an == 0 
+   && Spannung_12V_avg > 9
+   && Pumpe_Inhibit == false)
    {
    digitalWrite(17, HIGH);
-   Relaisstatus = 1;
+   Pumpenrelais_an = true;
    Serial.println("Relais an");
-   client.publish(MQTTstatus, "Relais an");
+   client.publish(MQTTstatus, "Pumpe an");
    }
-if (Relaisstatus == 1 && Spannung_12V_avg < 8)
+if (Pumpenrelais_an == true && Spannung_12V_avg < 7)
    {
    digitalWrite(17, LOW);
-   Relaisstatus = 0;
+   Pumpenrelais_an = false;
    Serial.println("Relais aus");
-   client.publish(MQTTstatus, "Relais aus");
+   client.publish(MQTTstatus, "Pumpe aus");
    }
 }
