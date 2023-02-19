@@ -1,6 +1,6 @@
 /*
 Baterrierelaisüberbrückung
-Verkabelung optimieren
+
 Helligkeitssensoren feintunen
 HElligkeitssensornamen austauschen
 
@@ -13,7 +13,7 @@ HElligkeitssensornamen austauschen
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <Update.h>
-#include <FastLED_NeoMatrix.h>
+// #include <FastLED_NeoMatrix.h>
 
 
 
@@ -57,7 +57,17 @@ typedef enum
    bs_balance_bat_and_caps,
 } enum_bs;
 
-#define VOLLGELADEN 11.2
+#define LOOP_2000ms 2000
+#define LOOP_500ms 500
+#define LOOP_100ms 100
+#define LOOP_200ms 200
+unsigned long Last_Timestamp_1 = 0;
+unsigned long Last_Timestamp_2 = 0;
+unsigned long Last_Timestamp_3 = 0;
+unsigned long Last_Timestamp_5 = 0;
+
+
+#define VOLLGELADEN 11.8
 #define DREIVIERTELVOLL 10.38 
 #define HALBVOLL 9.75
 #define VIERTELVOLL 9.13
@@ -78,15 +88,15 @@ int lt_init = true;
 int externe_anforderung_cntr = 0;
 #define EXTERNE_ANFORDERUNG_WAITTIME 3
 
-#define WAITTIME_BREITE  0
+#define WAITTIME_VERSTELLUNG  3
 #define WAITTIME_HOEHE  0
 char stringBuffer1[6];
 
-int Pumpe_Inhibit = false;
+int Pumpe_ext_anf_an = true;
 
 
-int verstellung_state_breite = 0;
-int waitcounter_breite = 0;
+int verstellung_state = 0;
+int waitcounter_verstellung = 0;
 int verstellung_state_hoehe = 0;
 int waitcounter_hoehe = 0;
 int Richtung_hoehe = 0;
@@ -108,10 +118,10 @@ int Last_Sollwinkel_breite = 110;
 int Last_Sollwinkel_hoehe = 110;
 volatile int Tgszeit_breite = 110;
 float Verstellschwelle = 1.2;
-int avg0 = 0;
-int avg1 = 0;
-int avg2 = 0;
-int avg3 = 0;
+int Helligkeit_unten_rechts_avg = 0;
+int Helligkeit_unten_links_avg = 0;
+int Helligkeit_oben_rechts_avg = 0;
+int Helligkeit_oben_links_avg = 0;
 int schleifenzaehler = 0;
 float Spannung_12V = 0;
 float Spannung_12V_avg = 0;
@@ -136,7 +146,6 @@ IPAddress server1(192, 168, 178, 66);
 int status = WL_IDLE_STATUS;
 
 char MQTTclient[] = "SolarWifi";
-;
 char MQTTstatus[] = "Solstate";
 char MQTTsub1[] = "Tgszeit";
 char MQTTsub2[] = "brextanf";
@@ -278,7 +287,7 @@ else if (myString == "brextanf")
    }
 else if (myString == "brpmp")
    {
-   Pumpe_Inhibit = payload[0]-48;
+   Pumpe_ext_anf_an = payload[0]-48;
    Serial.println(ExterneAnforderung);
    }
 
@@ -470,73 +479,42 @@ void loop()
 abend();
 
 
-EVERY_N_MILLISECONDS(100) 
-  {
-  wifirec();
-  reconnect();
-  client.loop();
-  server.handleClient();  
-  verstellung();
-  relais();
-  }
+// 100ms Loop
+if ( ( millis() - Last_Timestamp_5) > LOOP_100ms)
+   {
+   wifirec();
+   reconnect();
+   client.loop();
+   server.handleClient();  
+   relais();
+   verstellung();
+   Last_Timestamp_5 = millis();
+   }
+   
+// 200ms Loop
+if ( ( millis() - Last_Timestamp_3) > LOOP_200ms)
+   {
 
-EVERY_N_MILLISECONDS(500) 
-  {
-  mittelwertbildung();
-//   Serial.print("Sollwinkel_breite=");
-//   Serial.println(Sollwinkel_breite);
+   // Serial.println("LOOP");
+   Last_Timestamp_3 = millis();
+   }
 
-  }
-// EVERY_N_SECONDS(5) 
-   // {
-   // if (Sollwinkel_breite > 175)
-   //    {
-   //    Richtung_breite=0;
-   //    }
-   // if (Sollwinkel_breite <5)
-   //    {
-   //    Richtung_breite=1;
-   //    }
-   // if (Richtung_breite == 0 )
-   //    {
-   //    Sollwinkel_breite--;
-   //    }
-   // if (Richtung_breite == 1)
-   //    {
-   //    Sollwinkel_breite++;
-   //    }
+// 500ms Loop
+if ( ( millis() - Last_Timestamp_1) > LOOP_500ms)
+   {
+   mittelwertbildung();
+   Last_Timestamp_1 = millis();
+   }
 
-   // if (Sollwinkel_hoehe > 145)
-   //    {
-   //    Richtung_hoehe=0;
-   //    }
-   // if (Sollwinkel_hoehe <65)
-   //    {
-   //    Richtung_hoehe=1;
-   //    }
-   // if (Richtung_hoehe == 0 )
-   //    {
-   //    Sollwinkel_hoehe--;
-   //    }
-   // if (Richtung_hoehe == 1)
-   //    {
-   //    Sollwinkel_hoehe++;
-   //    }
-   // }
-EVERY_N_SECONDS(2) 
-  {
-  mqtt();
-  batterie();
-  }
+// 2000ms Loop
+if ( ( millis() - Last_Timestamp_2) > LOOP_2000ms)
+   {
+   mqtt();
+   batterie();
+   Last_Timestamp_2 = millis();
+   }
 
- 
 }
 
 
-// #include </Batterie.ino>
-// #include <mqtt.ino>
-// #include <Relais.ino>
-// #include <Verstellung.ino>
-// #include <Abend.ino>
-// #include <mittelwertbildung.ino>
  

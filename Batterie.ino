@@ -52,7 +52,7 @@ if (battery_state == bs_initial)
       batterie_an = true;
       battery_state = bs_batteriebetrieb;
       }
-   if (  ( Pumpe_Inhibit == true )
+   if (  ( Pumpe_ext_anf_an == false )
       && ( Spannung_12V_avg > DREIVIERTELVOLL ) )
       {
       batterie_an = true;
@@ -120,8 +120,11 @@ else if (battery_state == bs_externeAnforderung)
    if (externe_anforderung_cntr >= EXTERNE_ANFORDERUNG_WAITTIME)
       {
       externe_anforderung_cntr=0;
-      Pumpenrelais_an = true;
-      digitalWrite(17, HIGH);
+      if (Pumpe_ext_anf_an == true)
+         {
+         Pumpenrelais_an = true;
+         digitalWrite(17, HIGH);
+         }
       battery_state = bs_batteriebetrieb;
       }
    else
@@ -193,7 +196,9 @@ if (battery_state != old_battery_state)
       case 4: client.publish(MQTTstatus, "bs_Leer");break;
       case 5: client.publish(MQTTstatus, "bs_externeAnforderung");break;
       case 6: client.publish(MQTTstatus, "bs_drain_caps");break;
+      case 7: client.publish(MQTTstatus, "bs_balance_bat_and_caps");break;
       default: client.publish(MQTTstatus, "Error");break;
       }
    }
 }
+  

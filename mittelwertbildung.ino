@@ -1,35 +1,35 @@
 void mittelwertbildung()
 {
-avg0 = 0;
-avg1 = 0;
-avg2 = 0;
-avg3 = 0;
+Helligkeit_unten_rechts_avg = 0;
+Helligkeit_unten_links_avg = 0;
+Helligkeit_oben_rechts_avg = 0;
+Helligkeit_oben_links_avg = 0;
 Spannung_12V_avg = 0;
 while (schleifenzaehler < Mittelwertloops)
    {
    int value0 = analogRead(36);
-   avg0 = avg0 + value0;
+   Helligkeit_unten_rechts_avg = Helligkeit_unten_rechts_avg + value0;
    int value1 = analogRead(39);
-   avg1 = avg1 + value1;
+   Helligkeit_unten_links_avg = Helligkeit_unten_links_avg + value1;
    int value2 = analogRead(34);
-   avg2 = avg2 + value2;
+   Helligkeit_oben_rechts_avg = Helligkeit_oben_rechts_avg + value2;
    int value3 = analogRead(35);
-   avg3 = avg3 + value3;
+   Helligkeit_oben_links_avg = Helligkeit_oben_links_avg + value3;
    Spannung_12V = analogRead(32);
    Spannung_12V_avg = Spannung_12V_avg + Spannung_12V;
    schleifenzaehler++;
    }
 schleifenzaehler = 0;
-avg0= avg0 / Mittelwertloops * Helligkeit_Korrekturwert0;
-avg1= avg1 / Mittelwertloops * Helligkeit_Korrekturwert1;
-avg2= avg2 / Mittelwertloops * Helligkeit_Korrekturwert2;
-avg3= avg3 / Mittelwertloops * Helligkeit_Korrekturwert3;
+Helligkeit_unten_rechts_avg= Helligkeit_unten_rechts_avg / Mittelwertloops * Helligkeit_Korrekturwert0;
+Helligkeit_unten_links_avg= Helligkeit_unten_links_avg / Mittelwertloops * Helligkeit_Korrekturwert1;
+Helligkeit_oben_rechts_avg= Helligkeit_oben_rechts_avg / Mittelwertloops * Helligkeit_Korrekturwert2;
+Helligkeit_oben_links_avg= Helligkeit_oben_links_avg / Mittelwertloops * Helligkeit_Korrekturwert3;
 Spannung_12V_avg= Spannung_12V_avg / Mittelwertloops / Spannungskorrekturwert_12V ;
 
 // Serial.println("Analog Value :");
-// Serial.println(avg0);
-// Serial.println(avg1);
-// Serial.println(avg2); 
-// Serial.println(avg3);
+// Serial.println(Helligkeit_unten_rechts_avg);
+// Serial.println(Helligkeit_unten_links_avg);
+// Serial.println(Helligkeit_oben_rechts_avg); 
+// Serial.println(Helligkeit_oben_links_avg);
 // Serial.println(Spannung_12V_avg);
 }

@@ -3,14 +3,16 @@ void relais()
 {
 if (  Pumpenrelais_an == 0 
    && Spannung_12V_avg > 9
-   && Pumpe_Inhibit == false)
+   && Pumpe_ext_anf_an == true)
    {
    digitalWrite(17, HIGH);
    Pumpenrelais_an = true;
    Serial.println("Relais an");
    client.publish(MQTTstatus, "Pumpe an");
    }
-if (Pumpenrelais_an == true && Spannung_12V_avg < 7)
+if ( Pumpenrelais_an == true 
+   && ( Spannung_12V_avg < 7 
+   || Pumpe_ext_anf_an == false ) )
    {
    digitalWrite(17, LOW);
    Pumpenrelais_an = false;

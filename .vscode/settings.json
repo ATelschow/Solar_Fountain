@@ -1,8 +1,0 @@
-{
-   "files.associations": {
-      "random":"cpp",
-      "limits":"cpp",
-      "*.tcc":"cpp"
-   },
-   "C_Cpp.errorSquiggles": "enabledIfIncludesResolve"
-}
