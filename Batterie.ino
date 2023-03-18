@@ -50,13 +50,25 @@ if (battery_state == bs_initial)
    if (Pumpenrelais_an == true)
       {
       batterie_an = true;
-      battery_state = bs_batteriebetrieb;
+      battery_state = bs_wait_after_Relais_on;
       }
    if (  ( Pumpe_ext_anf_an == false )
       && ( Spannung_12V_avg > DREIVIERTELVOLL ) )
       {
       batterie_an = true;
       battery_state = bs_balance_bat_and_caps;
+      }
+   }
+else if (battery_state == bs_wait_after_Relais_on)
+   {
+   if (bs_wait_after_Relais_on_cntr >= WAIT_AFTER_RELAIS_ON_LOOPS)
+      {
+      battery_state = bs_batteriebetrieb;
+      bs_wait_after_Relais_on_cntr=0;
+      }
+   else
+      {
+      bs_wait_after_Relais_on_cntr++;
       }
    }
 else if (battery_state == bs_batteriebetrieb)
@@ -190,15 +202,15 @@ if (battery_state != old_battery_state)
    switch (battery_state) 
       {
       case 0: client.publish(MQTTstatus, "bs_initial");break;
-      case 1: client.publish(MQTTstatus, "bs_batteriebetrieb");break;
-      case 2: client.publish(MQTTstatus, "bs_vollgeladen");break;
-      case 3: client.publish(MQTTstatus, "bs_halbeLadung");break;
-      case 4: client.publish(MQTTstatus, "bs_Leer");break;
-      case 5: client.publish(MQTTstatus, "bs_externeAnforderung");break;
-      case 6: client.publish(MQTTstatus, "bs_drain_caps");break;
-      case 7: client.publish(MQTTstatus, "bs_balance_bat_and_caps");break;
+      case 1: client.publish(MQTTstatus, "bs_wait_after_Relais_on");break;
+      case 2: client.publish(MQTTstatus, "bs_batteriebetrieb");break;
+      case 3: client.publish(MQTTstatus, "bs_vollgeladen");break;
+      case 4: client.publish(MQTTstatus, "bs_halbeLadung");break;
+      case 5: client.publish(MQTTstatus, "bs_Leer");break;
+      case 6: client.publish(MQTTstatus, "bs_externeAnforderung");break;
+      case 7: client.publish(MQTTstatus, "bs_drain_caps");break;
+      case 8: client.publish(MQTTstatus, "bs_balance_bat_and_caps");break;
       default: client.publish(MQTTstatus, "Error");break;
       }
    }
 }
-  
